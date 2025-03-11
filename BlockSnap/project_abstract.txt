@@ -1,0 +1,25 @@
+# BlockSnap: Blockchain-Powered Media Verification and Authentication System
+
+BlockSnap is an innovative end-to-end system for capturing, storing, and verifying digital media using blockchain technology and decentralized storage. The application enables seamless media authentication and provenance verification through a combination of NFT minting, IPFS storage, and Ethereum-based smart contracts.
+
+At its core, BlockSnap allows users to capture photos and videos either through a traditional interface or a specialized dashcam mode, automatically storing media on IPFS and minting corresponding NFTs on the blockchain. The system generates unique digital signatures for all captured media, permanently anchoring their authenticity and ownership information on the blockchain through custom ERC-721 smart contracts. 
+
+Key features include:
+
+1. **Secure Media Capture**: Supports both photo and video recording with timestamp verification and owner attribution.
+
+2. **Decentralized Storage**: Utilizes IPFS for immutable content-addressed media storage, ensuring files cannot be tampered with.
+
+3. **Blockchain Authentication**: Mints NFTs for captured media with ownership records and metadata permanently stored on-chain.
+
+4. **Verification System**: Provides comprehensive transaction hash-based verification, allowing anyone to confirm the authenticity and provenance of media across the internet.
+
+5. **Dashcam Recording**: Offers a specialized mode for continuous video recording with automatic chunking and blockchain registration.
+
+6. **Local Caching**: Implements robust fallback mechanisms to ensure media availability even when blockchain or IPFS connections are unreliable.
+
+7. **BuildBear Integration**: Utilizes BuildBear testnet for improved reliability and performance over local Hardhat networks.
+
+The application integrates frontend components built with React and Chakra UI, a Flask-based backend server, blockchain handlers for Ethereum interaction, IPFS integration for decentralized storage, and hardware interfaces for camera control. BlockSnap's architecture is optimized for resilience through progressive block range search strategies, multiple fallback mechanisms, and comprehensive error handling.
+
+With its focus on tamper-proof media verification, BlockSnap addresses critical challenges in digital media authentication, making it suitable for applications in journalism, legal evidence collection, insurance documentation, and other domains where media provenance and authenticity are paramount.
