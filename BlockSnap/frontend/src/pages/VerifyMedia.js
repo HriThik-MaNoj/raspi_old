@@ -11,12 +11,15 @@ import {
   HStack,
   Icon,
   Badge,
-  Image,
   FormControl,
   FormLabel,
+  Spinner,
+  Tag,
+  TagLabel,
+  TagLeftIcon,
 } from '@chakra-ui/react';
 import { useDropzone } from 'react-dropzone';
-import { MdCloudUpload, MdVerified, MdError } from 'react-icons/md';
+import { MdCloudUpload, MdVerified, MdError, MdDevices, MdPerson } from 'react-icons/md';
 import axios from 'axios';
 
 function VerifyMedia() {
@@ -76,7 +79,8 @@ function VerifyMedia() {
 
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:5000/verify/tx/${txHashInput}`);
+      // Use the distributed verification endpoint
+      const response = await axios.get(`http://localhost:5000/api/verify/tx/${txHashInput}`);
       setVerificationResult(response.data);
     } catch (error) {
       toast({
@@ -94,6 +98,12 @@ function VerifyMedia() {
     <Box maxW="container.lg" mx="auto">
       <VStack spacing={8} align="stretch">
         <Heading color="white">Verify Media Authenticity</Heading>
+        
+        <Text color="gray.300">
+          Verify the authenticity of media using blockchain verification. 
+          Our system validates media authenticity by checking transaction records on the blockchain, 
+          ensuring tamper-proof verification without relying on centralized storage systems.
+        </Text>
         
         <Box
           {...getRootProps()}
@@ -144,7 +154,14 @@ function VerifyMedia() {
           </FormControl>
         </VStack>
 
-        {verificationResult && (
+        {loading && (
+          <Box textAlign="center" py={6}>
+            <Spinner size="xl" color="blue.500" />
+            <Text mt={4} color="white">Verifying across the network...</Text>
+          </Box>
+        )}
+
+        {verificationResult && !loading && (
           <Box bg="gray.800" p={6} borderRadius="lg">
             <VStack spacing={4} align="stretch">
               <HStack>
@@ -183,16 +200,120 @@ function VerifyMedia() {
                 </Text>
               </HStack>
 
-              {verificationResult.ipfs_url && (
-                <Box mt={4}>
-                  <Text color="white" mb={2}>Preview:</Text>
-                  <Image
-                    src={verificationResult.ipfs_url}
-                    alt="Verified content"
-                    maxH="300px"
-                    borderRadius="md"
-                  />
-                </Box>
+              {/* Display verification source */}
+              {verificationResult.verified_by && (
+                <HStack>
+                  <Tag size="md" colorScheme="purple" borderRadius="full">
+                    <TagLeftIcon boxSize="12px" as={MdDevices} />
+                    <TagLabel>Verified by: {verificationResult.verified_by}</TagLabel>
+                  </Tag>
+                </HStack>
+              )}
+
+              {/* Display media type */}
+              {verificationResult.media_type && (
+                <HStack>
+                  <Badge colorScheme="teal">
+                    Media Type
+                  </Badge>
+                  <Text color="gray.300" textTransform="capitalize">
+                    {verificationResult.media_type}
+                  </Text>
+                </HStack>
+              )}
+
+              {/* Display owner */}
+              {verificationResult.owner && (
+                <HStack>
+                  <Tag size="md" colorScheme="green" borderRadius="full">
+                    <TagLeftIcon boxSize="12px" as={MdPerson} />
+                    <TagLabel>Owner: {verificationResult.owner.substring(0, 6)}...{verificationResult.owner.substring(38)}</TagLabel>
+                  </Tag>
+                </HStack>
+              )}
+
+              {/* Display token ID if available */}
+              {verificationResult.token_id && (
+                <HStack>
+                  <Badge colorScheme="blue">
+                    Token ID
+                  </Badge>
+                  <Text color="gray.300">
+                    {verificationResult.token_id}
+                  </Text>
+                </HStack>
+              )}
+
+              {/* Display session ID if available */}
+              {verificationResult.session_id && (
+                <HStack>
+                  <Badge colorScheme="orange">
+                    Session ID
+                  </Badge>
+                  <Text color="gray.300">
+                    {verificationResult.session_id}
+                  </Text>
+                </HStack>
+              )}
+
+              {/* Display CID if available but don't try to load it */}
+              {verificationResult.cid && (
+                <HStack>
+                  <Badge colorScheme="yellow">
+                    Content ID (IPFS)
+                  </Badge>
+                  <Text color="gray.300" isTruncated>
+                    {verificationResult.cid}
+                  </Text>
+                </HStack>
+              )}
+
+              {/* Display sequence number if available */}
+              {verificationResult.sequence_number && (
+                <HStack>
+                  <Badge colorScheme="cyan">
+                    Sequence Number
+                  </Badge>
+                  <Text color="gray.300">
+                    {verificationResult.sequence_number}
+                  </Text>
+                </HStack>
+              )}
+
+              {/* Display metadata URI if available */}
+              {verificationResult.metadata_uri && (
+                <HStack>
+                  <Badge colorScheme="purple">
+                    Metadata URI
+                  </Badge>
+                  <Text color="gray.300" isTruncated>
+                    {verificationResult.metadata_uri}
+                  </Text>
+                </HStack>
+              )}
+
+              {/* Display function if available */}
+              {verificationResult.function && (
+                <HStack>
+                  <Badge colorScheme="blue">
+                    Function
+                  </Badge>
+                  <Text color="gray.300">
+                    {verificationResult.function}
+                  </Text>
+                </HStack>
+              )}
+
+              {/* Display message if available */}
+              {verificationResult.message && (
+                <HStack>
+                  <Badge colorScheme="pink">
+                    Message
+                  </Badge>
+                  <Text color="gray.300">
+                    {verificationResult.message}
+                  </Text>
+                </HStack>
               )}
             </VStack>
           </Box>

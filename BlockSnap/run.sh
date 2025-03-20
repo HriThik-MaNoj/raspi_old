@@ -86,7 +86,8 @@ start_ipfs() {
         print_status "$YELLOW" "IPFS daemon is already running"
     else
         ipfs daemon &
-        sleep 5 # Wait for IPFS to start
+        print_status "$YELLOW" "Waiting for IPFS daemon to initialize..."
+        sleep 10 # Increased wait time for IPFS to start
     fi
 }
 

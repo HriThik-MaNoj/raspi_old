@@ -230,7 +230,7 @@ class BlockchainHandler:
             
         try:
             # Prepare transaction
-            tx = self.contract.functions.mintPhoto(
+            tx = self.contract.functions.mintPhotoNFT(
                 self.w3.to_checksum_address(recipient_address),
                 image_cid,
                 metadata_uri
@@ -291,105 +291,4 @@ class BlockchainHandler:
             return exists, owner
         except Exception as e:
             self.logger.error(f"Error verifying photo: {str(e)}")
-            return False, None
-    
-    def get_video_sessions(self, wallet_address: str) -> List[Dict[str, Any]]:
-        """Get all video sessions for a wallet address from the blockchain
-        
-        This is a stub implementation since the actual blockchain contract doesn't
-        have this functionality yet. In a real implementation, this would query
-        the blockchain for video sessions owned by the wallet address.
-        """
-        self.logger.info(f"Getting video sessions for wallet {wallet_address} from blockchain")
-        
-        if not self.is_connected:
-            self.logger.error("Cannot get video sessions: Not connected to Ethereum network")
-            return []
-        
-        try:
-            # This would be implemented to query the blockchain for video sessions
-            # For now, return an empty list since the blockchain doesn't store this info yet
-            return []
-        except Exception as e:
-            self.logger.error(f"Error getting video sessions: {str(e)}")
-            return []
-    
-    def start_video_session(self, wallet_address: str) -> Tuple[int, str]:
-        """Start a new video session on the blockchain
-        
-        Args:
-            wallet_address: The wallet address that will own this session
-            
-        Returns:
-            Tuple[int, str]: (session_id, transaction_hash)
-        """
-        self.logger.info(f"Starting video session for wallet {wallet_address}")
-        
-        if not self.is_connected:
-            self.logger.error("Cannot start video session: Not connected to Ethereum network")
-            return None, None
-        
-        try:
-            # Generate a random session ID between 100000 and 999999
-            import random
-            session_id = random.randint(100000, 999999)
-            
-            # This would be implemented to create a new video session on the blockchain
-            # For now, return a fake transaction hash
-            tx_hash = f"0x{session_id:064x}"
-            return session_id, tx_hash
-        except Exception as e:
-            self.logger.error(f"Error starting video session: {str(e)}")
-            return None, None
-    
-    def add_video_chunk(self, session_id: int, sequence_number: int, video_cid: str, metadata_cid: str, timestamp: int) -> Tuple[bool, str]:
-        """Add a video chunk to an existing session on the blockchain
-        
-        Args:
-            session_id: ID of the video session
-            sequence_number: Sequence number of this chunk in the session
-            video_cid: IPFS CID of the video chunk
-            metadata_cid: IPFS CID of the chunk metadata
-            timestamp: Unix timestamp when this chunk was recorded
-            
-        Returns:
-            Tuple[bool, str]: (success, transaction_hash)
-        """
-        self.logger.info(f"Adding video chunk {sequence_number} to session {session_id}")
-        
-        if not self.is_connected:
-            self.logger.error("Cannot add video chunk: Not connected to Ethereum network")
-            return False, None
-        
-        try:
-            # This would be implemented to add a video chunk to the blockchain
-            # For now, return a fake transaction hash
-            tx_hash = f"0x{session_id:032x}{sequence_number:032x}"
-            return True, tx_hash
-        except Exception as e:
-            self.logger.error(f"Error adding video chunk: {str(e)}")
-            return False, None
-            
-    def end_video_session(self, session_id: int) -> Tuple[bool, str]:
-        """End a video session on the blockchain
-        
-        Args:
-            session_id: ID of the video session to end
-            
-        Returns:
-            Tuple[bool, str]: (success, transaction_hash)
-        """
-        self.logger.info(f"Ending video session {session_id}")
-        
-        if not self.is_connected:
-            self.logger.error("Cannot end video session: Not connected to Ethereum network")
-            return False, None
-        
-        try:
-            # This would be implemented to end the video session on the blockchain
-            # For now, return a fake transaction hash
-            tx_hash = f"0x{session_id:064x}"
-            return True, tx_hash
-        except Exception as e:
-            self.logger.error(f"Error ending video session: {str(e)}")
             return False, None

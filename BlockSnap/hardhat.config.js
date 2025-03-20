@@ -18,9 +18,9 @@ module.exports = {
       chainId: 1337
     },
     buildbear: {
-      url: process.env.ETH_RPC_URL || "https://rpc.buildbear.io/lengthy-northstar-c002c609",
+      url: process.env.ETH_RPC_URL || "https://rpc.buildbear.io/imaginative-ghostrider-4b8c9868",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 24578
+      chainId: 24750
     }
   },
   etherscan: {

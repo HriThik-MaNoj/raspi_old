@@ -9,6 +9,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+import random
 
 class IPFSHandler:
     def __init__(self):
@@ -23,14 +24,40 @@ class IPFSHandler:
         self.pinata_api_key = os.getenv('PINATA_API_KEY')
         self.pinata_secret_key = os.getenv('PINATA_SECRET_KEY')
         
-        try:
-            # Test connection to IPFS daemon
-            response = requests.post(f"{self.ipfs_host}/api/v0/version")
-            response.raise_for_status()
-            self.logger.info(f"Connected to IPFS daemon at {self.ipfs_host}")
-        except Exception as e:
-            self.logger.error(f"Failed to connect to IPFS daemon: {str(e)}")
-            raise
+        # Retry configuration
+        self.max_retries = int(os.getenv('MAX_RETRIES', '5'))
+        self.retry_delay = int(os.getenv('RETRY_DELAY', '2'))  # seconds
+        
+        # Connect to IPFS daemon with retry logic
+        self._connect_with_retry()
+        
+    def _connect_with_retry(self):
+        """Connect to IPFS daemon with retry logic"""
+        attempts = 0
+        last_error = None
+        
+        self.logger.info(f"Attempting to connect to IPFS daemon at {self.ipfs_host}")
+        
+        while attempts < self.max_retries:
+            try:
+                # Test connection to IPFS daemon
+                response = requests.post(f"{self.ipfs_host}/api/v0/version")
+                response.raise_for_status()
+                self.logger.info(f"Connected to IPFS daemon at {self.ipfs_host}")
+                return
+            except Exception as e:
+                last_error = e
+                self.logger.warning(f"Connection attempt {attempts+1} failed: {str(e)}")
+                
+                # Exponential backoff with jitter
+                delay = self.retry_delay * (2 ** attempts) + random.uniform(0, 1)
+                self.logger.info(f"Retrying in {delay:.2f} seconds...")
+                time.sleep(delay)
+                attempts += 1
+        
+        # If we get here, all retries failed
+        self.logger.error(f"Failed to connect to IPFS daemon after {self.max_retries} attempts")
+        raise ConnectionError(f"Failed to connect to IPFS daemon: {str(last_error)}")
 
     def add_file(self, file_path: str) -> str:
         """Add a file to IPFS and return its CID"""
@@ -398,6 +425,47 @@ class IPFSHandler:
         except Exception as e:
             self.logger.error(f"Failed to calculate CID: {str(e)}")
             raise
+
+    def get_content(self, cid: str) -> Optional[bytes]:
+        """Get content from IPFS by CID"""
+        try:
+            # Try local IPFS node first
+            response = requests.post(
+                f"{self.ipfs_host}/api/v0/cat",
+                params={'arg': cid}
+            )
+            response.raise_for_status()
+            return response.content
+        except Exception as e:
+            self.logger.warning(f"Failed to get content from local IPFS: {str(e)}")
+            
+            # Try public gateways
+            gateways = [
+                self.ipfs_gateway,
+                'https://ipfs.io/ipfs/',
+                'https://gateway.pinata.cloud/ipfs/',
+                'https://cloudflare-ipfs.com/ipfs/',
+                'https://ipfs.infura.io/ipfs/'
+            ]
+            
+            for gateway in gateways:
+                try:
+                    # Ensure gateway URL ends with /ipfs/
+                    if not gateway.endswith('/ipfs/'):
+                        gateway = f"{gateway.rstrip('/')}/ipfs/"
+                        
+                    url = f"{gateway}{cid}"
+                    response = requests.get(url, timeout=10)
+                    
+                    if response.status_code == 200:
+                        self.logger.info(f"Retrieved content from gateway: {gateway}")
+                        return response.content
+                except Exception as gateway_error:
+                    self.logger.debug(f"Failed to get content from gateway {gateway}: {str(gateway_error)}")
+                    continue
+            
+            self.logger.error(f"Failed to get content for CID {cid} from any source")
+            return None
 
 if __name__ == "__main__":
     # Example usage

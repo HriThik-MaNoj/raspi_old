@@ -4,61 +4,78 @@ const fs = require("fs");
 async function main() {
   console.log("Deploying BlockSnap NFT contract...");
 
-  // Get the contract factory
-  const BlockSnapNFT = await hre.ethers.getContractFactory("BlockSnapNFT");
-  console.log("Contract factory created");
+  try {
+    // Get network info
+    const network = await hre.ethers.provider.getNetwork();
+    console.log("Connected to network:", {
+      chainId: network.chainId,
+      name: network.name
+    });
 
-  // Deploy the contract
-  const blockSnap = await BlockSnapNFT.deploy();
-  console.log("Contract deployment initiated");
+    // Get signer info
+    const [signer] = await hre.ethers.getSigners();
+    console.log("Deploying with account:", await signer.getAddress());
+    const balance = await hre.ethers.provider.getBalance(signer.getAddress());
+    console.log("Account balance:", hre.ethers.formatEther(balance));
 
-  // Wait for deployment
-  await blockSnap.waitForDeployment();
-  const contractAddress = await blockSnap.getAddress();
-  console.log("Contract deployed to:", contractAddress);
+    // Get the contract factory
+    const BlockSnapNFT = await hre.ethers.getContractFactory("BlockSnapNFT");
+    console.log("Contract factory created");
 
-  // Get the contract artifacts
-  const artifacts = await hre.artifacts.readArtifact("BlockSnapNFT");
+    // Deploy the contract
+    const blockSnap = await BlockSnapNFT.deploy();
+    console.log("Contract deployment initiated");
 
-  // Create contract info JSON
-  const contractInfo = {
-    address: contractAddress,
-    abi: artifacts.abi,
-    network: hre.network.name,
-    deploymentTime: new Date().toISOString()
-  };
+    // Wait for deployment
+    await blockSnap.waitForDeployment();
+    const contractAddress = await blockSnap.getAddress();
+    console.log("Contract deployed to:", contractAddress);
 
-  // Save contract info to JSON file
-  const contractInfoPath = './BlockSnapNFT.json';
-  fs.writeFileSync(
-    contractInfoPath,
-    JSON.stringify(contractInfo, null, 2)
-  );
+    // Get the contract artifacts
+    const artifacts = await hre.artifacts.readArtifact("BlockSnapNFT");
 
-  console.log("Contract information saved to BlockSnapNFT.json");
+    // Create contract info JSON
+    const contractInfo = {
+      address: contractAddress,
+      abi: artifacts.abi,
+      network: hre.network.name,
+      deploymentTime: new Date().toISOString()
+    };
 
-  // Update the .env file with the new contract address
-  const envPath = './.env';
-  const envContent = fs.readFileSync(envPath, 'utf8');
-  const updatedContent = envContent.replace(
-    /^CONTRACT_ADDRESS=.*/m,
-    `CONTRACT_ADDRESS=${contractAddress}`
-  );
-  fs.writeFileSync(envPath, updatedContent);
-  console.log("Updated .env file with new contract address");
+    // Save contract info to JSON file
+    const contractInfoPath = './BlockSnapNFT.json';
+    fs.writeFileSync(
+      contractInfoPath,
+      JSON.stringify(contractInfo, null, 2)
+    );
 
-  // Verify contract on Etherscan if not on localhost
-  if (hre.network.name !== "localhost" && hre.network.name !== "hardhat") {
-    console.log("Verifying contract on Etherscan...");
-    try {
-      await hre.run("verify:verify", {
-        address: contractAddress,
-        constructorArguments: []
-      });
-      console.log("Contract verified on Etherscan");
-    } catch (error) {
-      console.error("Error verifying contract:", error);
+    console.log("Contract information saved to BlockSnapNFT.json");
+
+    // Update the .env file with the new contract address
+    const envPath = './.env';
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    const updatedContent = envContent.replace(
+      /^CONTRACT_ADDRESS=.*/m,
+      `CONTRACT_ADDRESS=${contractAddress}`
+    );
+    fs.writeFileSync(envPath, updatedContent);
+    console.log("Updated .env file with new contract address");
+
+    // Verify contract on Etherscan if not on localhost
+    if (hre.network.name !== "localhost" && hre.network.name !== "hardhat") {
+      console.log("Verifying contract on Etherscan...");
+      try {
+        await hre.run("verify:verify", {
+          address: contractAddress,
+          constructorArguments: []
+        });
+        console.log("Contract verified on Etherscan");
+      } catch (error) {
+        console.error("Error verifying contract:", error);
+      }
     }
+  } catch (error) {
+    console.error("Error deploying contract:", error);
   }
 }
 

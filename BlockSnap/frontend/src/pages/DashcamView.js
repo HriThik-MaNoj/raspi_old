@@ -32,6 +32,7 @@ function DashcamView() {
   const [sessionId, setSessionId] = useState(null);
   const [hasPermission, setHasPermission] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const { account } = useWeb3React();
   const toast = useToast();
@@ -42,6 +43,7 @@ function DashcamView() {
   const textColor = useColorModeValue('gray.100', 'gray.200');
   const borderColor = useColorModeValue('gray.700', 'gray.600');
 
+  // Request camera permission on component mount
   useEffect(() => {
     requestCameraPermission();
     return () => {
@@ -57,7 +59,7 @@ function DashcamView() {
         }
       }
     };
-  }, []);
+  }, []); // eslint-disable-next-line react-hooks/exhaustive-deps
 
   // Initialize MediaRecorder with ondataavailable handler
   useEffect(() => {
@@ -118,7 +120,7 @@ function DashcamView() {
         }
       }
     };
-  }, [cameraStream]);
+  }, [cameraStream]); // eslint-disable-next-line react-hooks/exhaustive-deps
 
   // Handle recording state
   useEffect(() => {
@@ -152,7 +154,7 @@ function DashcamView() {
         }
       }
     };
-  }, [isRecording]);
+  }, [isRecording, toast]); // Added toast to the dependency array
 
   // Add a useEffect to monitor wallet connection
   useEffect(() => {

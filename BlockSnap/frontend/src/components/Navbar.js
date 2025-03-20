@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Box,
   Flex,
@@ -20,6 +20,24 @@ function Navbar() {
   const { active, account, activate, deactivate } = useWeb3React();
   const toast = useToast();
 
+  // Try to connect automatically when component mounts
+  useEffect(() => {
+    const checkAndConnect = async () => {
+      // Check if user was previously connected
+      if (window.ethereum && window.ethereum.selectedAddress) {
+        try {
+          console.log('Attempting to reconnect wallet automatically...');
+          await activate(injected);
+          console.log('Wallet reconnected automatically');
+        } catch (error) {
+          console.error('Auto-connect error:', error);
+        }
+      }
+    };
+    
+    checkAndConnect();
+  }, [activate]);
+
   const connectWallet = async () => {
     console.log('Attempting to connect wallet...');
     try {
@@ -35,7 +53,7 @@ function Navbar() {
       try {
         await window.ethereum.request({
           method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0x6002' }], // BuildBear chainId in hex (24578)
+          params: [{ chainId: '0x60AE' }], // BuildBear chainId in hex (24750)
         });
       } catch (switchError) {
         // This error code indicates that the chain has not been added to MetaMask
@@ -45,15 +63,15 @@ function Navbar() {
               method: 'wallet_addEthereumChain',
               params: [
                 {
-                  chainId: '0x6002',
+                  chainId: '0x60AE',
                   chainName: 'BuildBear Testnet',
                   nativeCurrency: {
                     name: 'ETH',
                     symbol: 'ETH',
                     decimals: 18
                   },
-                  rpcUrls: ['https://rpc.buildbear.io/lengthy-northstar-c002c609'],
-                  blockExplorerUrls: ['https://explorer.buildbear.io/lengthy-northstar-c002c609']
+                  rpcUrls: ['https://rpc.buildbear.io/imaginative-ghostrider-4b8c9868'],
+                  blockExplorerUrls: ['https://explorer.buildbear.io/imaginative-ghostrider-4b8c9868']
                 },
               ],
             });

@@ -11,7 +11,6 @@ import {
   useColorModeValue,
   Icon,
   Flex,
-  Button,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { useWeb3React } from '@web3-react/core';

@@ -4,5 +4,6 @@ export const injected = new InjectedConnector({
   supportedChainIds: [
     24578, // BuildBear testnet
     1337,  // Local network
+    24750, // Current BuildBear network
   ],
 });

@@ -63,7 +63,8 @@ function CameraView() {
         },
       });
 
-      const { token_id, image_url, transaction_hash } = result.data.data;
+      const { token_id, transaction_hash } = result.data.data; // eslint-disable-next-line no-unused-vars
+      const { image_url } = result.data.data;
 
       toast({
         title: 'Success!',

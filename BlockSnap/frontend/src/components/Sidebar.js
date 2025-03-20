@@ -7,6 +7,7 @@ import {
   MdVideocam,
   MdVerifiedUser,
   MdPhotoLibrary,
+  MdBarChart,
 } from 'react-icons/md';
 
 const MenuItem = ({ icon, children, to }) => {
@@ -76,9 +77,12 @@ function Sidebar() {
         <MenuItem icon={MdPhotoLibrary} to="/gallery">
           Gallery
         </MenuItem>
+        <MenuItem icon={MdBarChart} to="/onchain-verification">
+          Onchain Hub
+        </MenuItem>
       </VStack>
     </Box>
   );
 }
 
-export default Sidebar; 
+export default Sidebar;

@@ -15,6 +15,7 @@ import CameraView from './pages/CameraView';
 import DashcamView from './pages/DashcamView';
 import VerifyMedia from './pages/VerifyMedia';
 import Gallery from './pages/Gallery';
+import OnchainVerificationHub from './pages/BlockchainProofPage';
 
 // Theme
 import theme from './theme';
@@ -39,6 +40,7 @@ function App() {
                   <Route path="/dashcam" element={<DashcamView />} />
                   <Route path="/verify" element={<VerifyMedia />} />
                   <Route path="/gallery" element={<Gallery />} />
+                  <Route path="/onchain-verification" element={<OnchainVerificationHub />} />
                   <Route path="/dashcam-controls" element={<DashcamControls />} />
                 </Routes>
               </Box>
@@ -50,4 +52,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;
