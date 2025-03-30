@@ -862,16 +862,23 @@ def distributed_verify_by_transaction_hash(tx_hash):
     """Verify a media's authenticity and ownership by transaction hash across the network"""
     try:
         # First try local verification
-        tx_exists, media_info = blockchain_handler.verify_by_transaction(tx_hash)
+        verification_result = blockchain_handler.verify_by_transaction(tx_hash)
+        tx_exists = verification_result["verified"]
+        media_info = {}
+        if tx_exists:
+            media_info = {
+                "owner": verification_result["owner"],
+                "metadata": verification_result["metadata"]
+            }
         
         if not tx_exists:
             # Try verification across the network
             network_result = distributed_node.verify_media_across_network(tx_hash)
             
-            if network_result['verified']:
+            if network_result.get('verified', False):
                 # If verified by a peer, return their result
                 # Make sure we preserve all the detailed blockchain information
-                media_info = network_result['media_info']
+                media_info = network_result.get('media_info', {})
                 
                 # Create a complete response with all available blockchain information
                 response_data = {
@@ -879,7 +886,7 @@ def distributed_verify_by_transaction_hash(tx_hash):
                     'owner': media_info.get('owner'),
                     'tx_hash': tx_hash,
                     'media_type': media_info.get('media_type') or media_info.get('type', 'unknown'),
-                    'verified_by': network_result['source'],
+                    'verified_by': network_result.get('source'),
                 }
                 
                 # Add all additional info to the verification result
@@ -896,10 +903,11 @@ def distributed_verify_by_transaction_hash(tx_hash):
                     'message': 'Transaction not found on blockchain or any peer node'
                 })
         
-        # If we found it locally, prepare the response
+        # If transaction exists locally, proceed with standard verification
+        owner = media_info.get('owner')
         media_type = media_info.get('media_type', 'unknown')
         
-        # Extract additional information based on media type
+        # Add detailed information based on media type
         additional_info = {
             'token_id': media_info.get('token_id'),
             'session_id': media_info.get('session_id'),
@@ -910,13 +918,13 @@ def distributed_verify_by_transaction_hash(tx_hash):
             'message': media_info.get('message')
         }
         
-        # Create the verification result
+        # Register this verification in the distributed node
         verification_result = {
             'exists_on_blockchain': True,
-            'owner': media_info.get('owner'),
+            'owner': owner,
             'tx_hash': tx_hash,
             'media_type': media_type,
-            'verified_by': 'local',
+            'verified_by': 'local'
         }
         
         # Add all additional info to the verification result
@@ -926,19 +934,18 @@ def distributed_verify_by_transaction_hash(tx_hash):
         
         # Register the media in the distributed network
         distributed_node.register_media({
+            'type': media_type,
             'tx_hash': tx_hash,
-            **media_info
+            'cid': media_info.get('cid'),
+            'owner': owner,
+            'verification_result': verification_result
         })
         
         return jsonify(verification_result)
         
     except Exception as e:
         logger.error(f"Error in transaction verification endpoint: {str(e)}")
-        return jsonify({
-            'error': str(e),
-            'exists_on_blockchain': False,
-            'tx_hash': tx_hash,
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/verify/file', methods=['POST'])
 def verify_file():
@@ -992,106 +999,6 @@ def verify_file():
         logger.error(f"Error in verify file endpoint: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/verify/tx/<tx_hash>', methods=['GET'])
-def distributed_verify_by_tx_hash(tx_hash):
-    """Verify a media's authenticity and ownership by transaction hash across the network"""
-    try:
-        # First try local verification
-        tx_exists, media_info = blockchain_handler.verify_by_transaction(tx_hash)
-        
-        if not tx_exists:
-            # Try verification across the network
-            network_result = distributed_node.verify_media_across_network(tx_hash)
-            
-            if network_result['verified']:
-                # If verified by a peer, return their result
-                # Make sure we preserve all the detailed blockchain information
-                media_info = network_result['media_info']
-                
-                # Create a complete response with all available blockchain information
-                response_data = {
-                    'exists_on_blockchain': True,
-                    'owner': media_info.get('owner'),
-                    'tx_hash': tx_hash,
-                    'media_type': media_info.get('media_type') or media_info.get('type', 'unknown'),
-                    'verified_by': network_result['source'],
-                }
-                
-                # Add all additional info to the verification result
-                for key, value in media_info.items():
-                    if key not in ['owner', 'tx_hash', 'media_type'] and value is not None:
-                        response_data[key] = value
-                
-                return jsonify(response_data)
-            else:
-                # Not found anywhere in the network
-                return jsonify({
-                    'exists_on_blockchain': False,
-                    'tx_hash': tx_hash,
-                    'message': 'Transaction not found on blockchain or network'
-                })
-        
-        # If transaction exists locally, proceed with standard verification
-        owner = None
-        media_type = 'unknown'
-        
-        if media_info:
-            owner = media_info.get('owner')
-            media_type = media_info.get('type', 'unknown')
-        
-        # Add detailed information based on media type
-        additional_info = {}
-        if media_type == 'photo':
-            additional_info = {
-                'token_id': media_info.get('token_id'),
-                'metadata_uri': media_info.get('metadata_uri'),
-                'cid': media_info.get('cid')
-            }
-        elif media_type == 'video_chunk':
-            additional_info = {
-                'session_id': media_info.get('session_id'),
-                'sequence_number': media_info.get('sequence_number'),
-                'cid': media_info.get('cid')
-            }
-        elif media_type == 'video_session':
-            additional_info = {
-                'session_id': media_info.get('session_id')
-            }
-        elif media_type == 'contract_interaction':
-            additional_info = {
-                'function': media_info.get('function'),
-                'message': media_info.get('message')
-            }
-        
-        # Register this verification in the distributed node
-        verification_result = {
-            'exists_on_blockchain': True,
-            'owner': owner,
-            'tx_hash': tx_hash,
-            'media_type': media_type,
-            'verified_by': 'local'
-        }
-        
-        # Add all additional info to the verification result
-        for key, value in additional_info.items():
-            if value is not None:  # Only add non-None values
-                verification_result[key] = value
-        
-        # Register the media in the distributed network
-        distributed_node.register_media({
-            'type': media_type,
-            'tx_hash': tx_hash,
-            'cid': media_info.get('cid'),
-            'owner': owner,
-            'verification_result': verification_result
-        })
-        
-        return jsonify(verification_result)
-        
-    except Exception as e:
-        logger.error(f"Error in distributed verify by transaction endpoint: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/api/media/broadcast', methods=['POST'])
 def receive_broadcast():
     """Receive media broadcast from other nodes"""
@@ -1124,12 +1031,57 @@ def query_media():
         media_type = query_params.get('type')
         owner = query_params.get('owner')
         
-        results = distributed_node.get_registered_media(media_type, owner)
-        return jsonify(results)
+        results = []
+        
+        # First check local cache
+        cache_dir = Path("/home/hrithik/raspi_old/BlockSnap/captures/media_cache")
+        cache_dir.mkdir(exist_ok=True, parents=True)
+        
+        # List all cache files
+        cache_files = list(cache_dir.glob("*.json"))
+        
+        for cache_file in cache_files:
+            try:
+                with open(cache_file, 'r') as f:
+                    media_data = json.load(f)
+                    
+                # Apply filters
+                if media_type and media_data.get('media_type') != media_type:
+                    continue
+                    
+                if owner and media_data.get('owner', '').lower() != owner.lower():
+                    continue
+                    
+                results.append(media_data)
+                
+                # Limit results
+                if len(results) >= 10:
+                    break
+            except Exception as cache_error:
+                app.logger.warning(f"Error reading cache file {cache_file}: {str(cache_error)}")
+        
+        # If we don't have enough results, try distributed node
+        if len(results) < 10 and hasattr(distributed_node, 'query_media'):
+            try:
+                distributed_results = distributed_node.query_media(media_type=media_type, owner=owner, limit=10-len(results))
+                if distributed_results and 'results' in distributed_results:
+                    for item in distributed_results['results']:
+                        # Check if we already have this item
+                        if not any(r.get('tx_hash') == item.get('tx_hash') for r in results):
+                            results.append(item)
+            except Exception as dist_error:
+                app.logger.warning(f"Error querying distributed node: {str(dist_error)}")
+        
+        return jsonify({
+            'results': results[:10]
+        })
         
     except Exception as e:
-        logger.error(f"Error in query media endpoint: {str(e)}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        app.logger.error(f"Error in query media endpoint: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'results': []
+        }), 500
 
 @app.route('/api/ipfs/gateway', methods=['GET'])
 def get_ipfs_gateway():

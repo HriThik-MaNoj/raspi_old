@@ -393,3 +393,125 @@ class BlockchainHandler:
         except Exception as e:
             self.logger.error(f"Error ending video session: {str(e)}")
             return False, None
+
+    def verify_by_transaction(self, tx_hash: str) -> Dict[str, Any]:
+        """Verify a media's authenticity and ownership by transaction hash
+        
+        Args:
+            tx_hash: The transaction hash to verify
+            
+        Returns:
+            Dict containing verification results with keys:
+            - verified (bool): Whether the transaction was found and verified
+            - owner (str): The owner's address if verified
+            - metadata (dict): Any associated metadata if available
+            - error (str): Error message if verification failed
+        """
+        self.logger.info(f"Verifying transaction {tx_hash}")
+        
+        if not self.is_connected:
+            self.logger.error("Cannot verify transaction: Not connected to Ethereum network")
+            return {"verified": False, "error": "Not connected to Ethereum network"}
+        
+        try:
+            # Get transaction receipt
+            tx_receipt = self._execute_with_retry(
+                "get_transaction_receipt",
+                self.w3.eth.get_transaction_receipt,
+                tx_hash
+            )
+            
+            if not tx_receipt:
+                return {
+                    "verified": False,
+                    "error": "Transaction not found or failed"
+                }
+            
+            # Process the logs to find relevant events
+            metadata = {}
+            owner = None
+            
+            for log in tx_receipt.logs:
+                try:
+                    # Try to decode the log as a Transfer event
+                    event = self.contract.events.Transfer().process_log(log)
+                    if event:
+                        owner = event.args.to
+                        metadata["tokenId"] = event.args.tokenId
+                        break
+                except:
+                    continue
+            
+            if owner:
+                # Get additional token metadata if available
+                try:
+                    token_uri = self.contract.functions.tokenURI(metadata["tokenId"]).call()
+                    metadata["tokenURI"] = token_uri
+                except Exception as e:
+                    self.logger.warning(f"Failed to get token URI: {str(e)}")
+            
+            return {
+                "verified": bool(owner),
+                "owner": owner,
+                "metadata": metadata if owner else None,
+                "error": None if owner else "No transfer event found in transaction"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error verifying transaction: {str(e)}")
+            return {
+                "verified": False,
+                "error": f"Verification failed: {str(e)}"
+            }
+
+    def get_token_uri(self, token_id: int) -> str:
+        """Get the token URI for a given token ID
+        
+        Args:
+            token_id: The ID of the token
+            
+        Returns:
+            The token URI string
+        """
+        self.logger.info(f"Getting token URI for token ID {token_id}")
+        
+        if not self.is_connected:
+            self.logger.error("Cannot get token URI: Not connected to Ethereum network")
+            return None
+        
+        try:
+            # Call the contract method to get the token URI
+            token_uri = self._execute_with_retry(
+                "get_token_uri",
+                self.contract.functions.tokenURI(token_id).call
+            )
+            return token_uri
+        except Exception as e:
+            self.logger.error(f"Error getting token URI: {str(e)}")
+            return None
+            
+    def get_image_cid(self, token_id: int) -> str:
+        """Get the image CID for a given token ID
+        
+        Args:
+            token_id: The ID of the token
+            
+        Returns:
+            The image CID string
+        """
+        self.logger.info(f"Getting image CID for token ID {token_id}")
+        
+        if not self.is_connected:
+            self.logger.error("Cannot get image CID: Not connected to Ethereum network")
+            return None
+        
+        try:
+            # Call the contract method to get the image CID
+            image_cid = self._execute_with_retry(
+                "get_image_cid",
+                self.contract.functions.getImageCID(token_id).call
+            )
+            return image_cid
+        except Exception as e:
+            self.logger.error(f"Error getting image CID: {str(e)}")
+            return None
