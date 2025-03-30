@@ -1,6 +1,45 @@
 const hre = require("hardhat");
 const fs = require("fs");
 
+async function deployWithRetry(maxRetries = 3, delayMs = 5000) {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Deployment attempt ${attempt}/${maxRetries}...`);
+      
+      // Get the contract factory
+      const BlockSnapNFT = await hre.ethers.getContractFactory("BlockSnapNFT");
+      console.log("Contract factory created");
+
+      // Deploy the contract with increased gas limit
+      const deploymentOptions = {
+        gasLimit: 5000000, // Increase gas limit
+      };
+      
+      const blockSnap = await BlockSnapNFT.deploy(deploymentOptions);
+      console.log("Contract deployment initiated");
+
+      // Wait for deployment with longer timeout
+      const deployedContract = await blockSnap.waitForDeployment();
+      const contractAddress = await deployedContract.getAddress();
+      console.log("Contract deployed to:", contractAddress);
+      
+      return deployedContract;
+    } catch (error) {
+      console.error(`Attempt ${attempt} failed:`, error.message);
+      lastError = error;
+      
+      if (attempt < maxRetries) {
+        console.log(`Retrying in ${delayMs/1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  
+  throw new Error(`Failed after ${maxRetries} attempts. Last error: ${lastError.message}`);
+}
+
 async function main() {
   console.log("Deploying BlockSnap NFT contract...");
 
@@ -18,25 +57,15 @@ async function main() {
     const balance = await hre.ethers.provider.getBalance(signer.getAddress());
     console.log("Account balance:", hre.ethers.formatEther(balance));
 
-    // Get the contract factory
-    const BlockSnapNFT = await hre.ethers.getContractFactory("BlockSnapNFT");
-    console.log("Contract factory created");
-
-    // Deploy the contract
-    const blockSnap = await BlockSnapNFT.deploy();
-    console.log("Contract deployment initiated");
-
-    // Wait for deployment
-    await blockSnap.waitForDeployment();
-    const contractAddress = await blockSnap.getAddress();
-    console.log("Contract deployed to:", contractAddress);
+    // Deploy the contract with retry logic
+    const blockSnap = await deployWithRetry();
 
     // Get the contract artifacts
     const artifacts = await hre.artifacts.readArtifact("BlockSnapNFT");
 
     // Create contract info JSON
     const contractInfo = {
-      address: contractAddress,
+      address: await blockSnap.getAddress(),
       abi: artifacts.abi,
       network: hre.network.name,
       deploymentTime: new Date().toISOString()
@@ -54,6 +83,7 @@ async function main() {
     // Update the .env file with the new contract address
     const envPath = './.env';
     const envContent = fs.readFileSync(envPath, 'utf8');
+    const contractAddress = await blockSnap.getAddress();
     const updatedContent = envContent.replace(
       /^CONTRACT_ADDRESS=.*/m,
       `CONTRACT_ADDRESS=${contractAddress}`
@@ -66,7 +96,7 @@ async function main() {
       console.log("Verifying contract on Etherscan...");
       try {
         await hre.run("verify:verify", {
-          address: contractAddress,
+          address: await blockSnap.getAddress(),
           constructorArguments: []
         });
         console.log("Contract verified on Etherscan");

@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "hardhat": "^2.22.18"
+    "hardhat": "^2.22.19"
   },
   "devDependencies": {
     "@matterlabs/hardhat-zksync": "^1.3.0",

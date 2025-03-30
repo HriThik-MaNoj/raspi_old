@@ -20,7 +20,9 @@ module.exports = {
     buildbear: {
       url: process.env.ETH_RPC_URL || "https://rpc.buildbear.io/imaginative-ghostrider-4b8c9868",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 24750
+      chainId: 24750,
+      timeout: 120000, // Increase timeout to 2 minutes
+      gasMultiplier: 1.5 // Add gas multiplier to increase gas price
     }
   },
   etherscan: {
@@ -31,5 +33,8 @@ module.exports = {
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts"
+  },
+  mocha: {
+    timeout: 120000 // Increase test timeout to 2 minutes as well
   }
 }; 
