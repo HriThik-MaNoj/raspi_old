@@ -45,7 +45,7 @@ function CameraView() {
     }
 
     try {
-      toast({
+      const toastId = toast({
         title: 'Processing',
         description: 'Uploading to IPFS and minting NFT...',
         status: 'info',
@@ -61,28 +61,57 @@ function CameraView() {
         headers: {
           'Content-Type': 'application/json',
         },
+        timeout: 300000, // Increase timeout to 5 minutes
       });
+
+      // Close the processing toast
+      toast.close(toastId);
+
+      if (result.data.error) {
+        throw new Error(result.data.error);
+      }
 
       const { token_id, transaction_hash } = result.data.data; // eslint-disable-next-line no-unused-vars
       const { image_url } = result.data.data;
 
-      toast({
-        title: 'Success!',
-        description: (
-          <VStack align="start">
-            <Text>NFT successfully minted!</Text>
-            <Text>Token ID: {token_id}</Text>
-            <Text>
-              <a href={`https://testnet.buildbear.io/tx/${transaction_hash}`} target="_blank" rel="noopener noreferrer">
-                View on BuildBear Explorer
-              </a>
-            </Text>
-          </VStack>
-        ),
-        status: 'success',
-        duration: 10000,
-        isClosable: true,
-      });
+      // Check if we got a valid token_id
+      if (!token_id && transaction_hash) {
+        // Transaction submitted but token_id not available yet
+        toast({
+          title: 'Transaction Submitted',
+          description: (
+            <VStack align="start">
+              <Text>Transaction has been submitted but is still processing.</Text>
+              <Text>
+                <a href={`https://testnet.buildbear.io/tx/${transaction_hash}`} target="_blank" rel="noopener noreferrer">
+                  View on BuildBear Explorer
+                </a>
+              </Text>
+            </VStack>
+          ),
+          status: 'warning',
+          duration: 10000,
+          isClosable: true,
+        });
+      } else {
+        toast({
+          title: 'Success!',
+          description: (
+            <VStack align="start">
+              <Text>NFT successfully minted!</Text>
+              <Text>Token ID: {token_id}</Text>
+              <Text>
+                <a href={`https://testnet.buildbear.io/tx/${transaction_hash}`} target="_blank" rel="noopener noreferrer">
+                  View on BuildBear Explorer
+                </a>
+              </Text>
+            </VStack>
+          ),
+          status: 'success',
+          duration: 10000,
+          isClosable: true,
+        });
+      }
 
       onClose();
       setImgSrc(null);

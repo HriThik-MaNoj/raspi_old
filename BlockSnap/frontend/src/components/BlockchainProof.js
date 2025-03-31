@@ -8,7 +8,6 @@ import {
   Flex,
   Image,
   Badge,
-  Divider,
   SimpleGrid,
   Stat,
   StatLabel,
@@ -27,10 +26,10 @@ import { useWeb3React } from '@web3-react/core';
 import { ExternalLinkIcon, CheckCircleIcon, InfoIcon, WarningIcon } from '@chakra-ui/icons';
 import axios from 'axios';
 
-// Contract information from memory
-const CONTRACT_ADDRESS = '0x5bfC2F35C351d99ACe2328Ea2Df6fFfa6dA9CF08';
-const NETWORK_RPC_URL = 'https://rpc.buildbear.io/imaginative-ghostrider-4b8c9868';
-const NETWORK_CHAIN_ID = 24750;
+// Contract information
+const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3'; // Hardhat default deployment address
+const NETWORK_RPC_URL = 'http://127.0.0.1:8545'; // Hardhat local network
+const NETWORK_CHAIN_ID = 31337; // Hardhat local chain ID
 
 // Mock data for the visualization if no real data is available
 const mockTransactions = [
@@ -103,86 +102,56 @@ const BlockchainProof = () => {
         } else {
           // Otherwise, fetch recent transactions from the verification API
           try {
-            // We'll fetch the last few transactions from the contract
-            const txHashes = [
-              // You can add known transaction hashes here if needed
-            ];
-            
-            // If no specific hashes, try to get recent transactions from backend
-            try {
-              const recentTxResponse = await axios.get('http://localhost:5000/api/recent-transactions');
-              if (recentTxResponse.data && recentTxResponse.data.transactions) {
-                txHashes.push(...recentTxResponse.data.transactions.map(tx => tx.hash));
-              }
-            } catch (recentTxError) {
-              console.error('Error fetching recent transactions:', recentTxError);
-            }
-            
-            // If we still don't have transactions, try a fallback approach
-            if (txHashes.length === 0) {
-              try {
-                // Fallback: Query for any media in the system
-                const queryResponse = await axios.get('http://localhost:5000/api/query-media');
-                if (queryResponse.data && queryResponse.data.results) {
-                  const mediaResults = queryResponse.data.results;
-                  for (const media of mediaResults) {
-                    if (media.tx_hash) {
-                      txHashes.push(media.tx_hash);
-                    }
+            const recentTxResponse = await axios.get('http://localhost:5000/api/recent-transactions');
+            if (recentTxResponse.data && recentTxResponse.data.transactions) {
+              const txDetails = [];
+              for (const tx of recentTxResponse.data.transactions) {
+                try {
+                  const txResponse = await axios.get(`http://localhost:5000/api/verify/tx/${tx.hash}`);
+                  if (txResponse.data && txResponse.data.exists_on_blockchain) {
+                    txDetails.push({
+                      ...txResponse.data,
+                      blockNumber: tx.blockNumber,
+                      timestamp: new Date(tx.timestamp * 1000).toISOString()
+                    });
                   }
+                } catch (txError) {
+                  console.error(`Error fetching transaction ${tx.hash}:`, txError);
                 }
-              } catch (queryError) {
-                console.error('Error querying media:', queryError);
               }
-            }
-            
-            // Process each transaction to get details
-            const txDetails = [];
-            for (const txHash of txHashes.slice(0, 5)) { // Limit to 5 transactions
-              try {
-                const txResponse = await axios.get(`http://localhost:5000/api/verify/tx/${txHash}`);
-                if (txResponse.data && txResponse.data.exists_on_blockchain) {
-                  txDetails.push(txResponse.data);
-                }
-              } catch (txError) {
-                console.error(`Error fetching transaction ${txHash}:`, txError);
-              }
-            }
-            
-            if (txDetails.length > 0) {
-              processTransactionData(txDetails);
-            } else {
-              // If we still don't have data, use mock data
-              console.log('Using mock transaction data');
-              processTransactionData(mockTransactions);
               
-              toast({
-                title: 'Using sample data',
-                description: 'Displaying sample blockchain data for demonstration purposes.',
-                status: 'info',
-                duration: 5000,
-                isClosable: true,
-              });
+              if (txDetails.length > 0) {
+                processTransactionData(txDetails);
+                
+                // Update stats with the latest block number
+                const latestBlock = Math.max(...txDetails.map(tx => tx.blockNumber));
+                setStats(prev => ({
+                  ...prev,
+                  lastBlockNumber: latestBlock,
+                  totalTransactions: txDetails.length
+                }));
+                
+                return; // Exit if we have transaction data
+              }
             }
           } catch (error) {
             console.error('Error fetching transaction data:', error);
-            // Use mock data as fallback
-            console.log('Using mock transaction data due to error');
-            processTransactionData(mockTransactions);
-            
-            toast({
-              title: 'Using sample data',
-              description: 'Displaying sample blockchain data for demonstration purposes.',
-              status: 'info',
-              duration: 5000,
-              isClosable: true,
-            });
           }
+          
+          // If we still don't have data, use mock data
+          console.log('Using mock transaction data');
+          processTransactionData(mockTransactions);
+          
+          toast({
+            title: 'Using sample data',
+            description: 'Displaying sample blockchain data for demonstration purposes.',
+            status: 'info',
+            duration: 5000,
+            isClosable: true,
+          });
         }
       } catch (error) {
         console.error('Error in blockchain proof component:', error);
-        // Use mock data as fallback
-        console.log('Using mock transaction data due to error');
         processTransactionData(mockTransactions);
         
         toast({
@@ -196,7 +165,7 @@ const BlockchainProof = () => {
         setLoading(false);
       }
     };
-    
+
     // Helper function to process transaction data
     const processTransactionData = (data) => {
       // Process and normalize the data format
@@ -216,7 +185,6 @@ const BlockchainProof = () => {
         // Check for metadata URI that might contain image info
         else if (item.metadata_uri && item.metadata_uri.startsWith('ipfs://')) {
           const metadataCid = item.metadata_uri.replace('ipfs://', '');
-          // We could fetch the metadata and extract image, but for now just use the CID
           imageUrl = `http://localhost:8080/ipfs/${metadataCid}`;
         }
         
@@ -225,10 +193,16 @@ const BlockchainProof = () => {
           imageUrl = "https://via.placeholder.com/150?text=BlockSnap+NFT";
         }
         
+        // Ensure we have a valid transaction hash
+        const txHash = item.tx_hash || item.txHash || 'Unknown';
+        
+        // Ensure we have a valid block number (default to 1 if not available)
+        const blockNumber = parseInt(item.block_number || item.blockNumber || 1);
+        
         return {
           tokenId: item.token_id || item.tokenId || 'Unknown',
-          txHash: item.tx_hash || item.txHash,
-          blockNumber: item.block_number || item.blockNumber || 0,
+          txHash: txHash,
+          blockNumber: blockNumber,
           timestamp: item.timestamp || new Date().toISOString(),
           imageCid: item.cid || item.image_cid || item.imageCid || 'Unknown',
           metadataUri: item.metadata_uri || item.metadataUri || 'Unknown',
@@ -239,15 +213,15 @@ const BlockchainProof = () => {
       
       setTransactions(processedData);
       
-      // Calculate stats
-      const lastBlock = processedData.reduce((max, tx) => 
-        Math.max(max, parseInt(tx.blockNumber) || 0), 0);
+      // Calculate stats - ensure we have valid numbers
+      const blockNumbers = processedData.map(tx => parseInt(tx.blockNumber) || 1);
+      const lastBlock = blockNumbers.length > 0 ? Math.max(...blockNumbers) : 1;
       
       setStats({
         totalNFTs: processedData.length,
         totalTransactions: processedData.length,
-        averageGasUsed: 65000, // Default value
-        lastBlockNumber: lastBlock || 0
+        averageGasUsed: 85000, // Typical gas usage for NFT minting
+        lastBlockNumber: lastBlock
       });
     };
     
@@ -262,14 +236,15 @@ const BlockchainProof = () => {
   
   // Format transaction hash for display
   const formatTxHash = (hash) => {
-    if (!hash) return '';
+    if (!hash || typeof hash !== 'string') return '';
     return `${hash.substring(0, 10)}...${hash.substring(hash.length - 8)}`;
   };
   
   // Generate explorer URL
   const getExplorerUrl = (txHash) => {
-    // BuildBear explorer URL based on the memory
-    return `https://explorer.buildbear.io/tx/${txHash}?chainId=${NETWORK_CHAIN_ID}`;
+    // For local Hardhat network, we don't have an explorer
+    // You can implement a local explorer or return null
+    return null;
   };
   
   return (
@@ -280,13 +255,15 @@ const BlockchainProof = () => {
           <Text fontSize="md" color="gray.500">
             Transparent verification of images stored on the blockchain via the BlockSnap NFT contract
           </Text>
-          <Badge colorScheme="green" fontSize="0.8em" mt={2}>
-            Contract: {CONTRACT_ADDRESS}
-          </Badge>
+          <Tooltip label={CONTRACT_ADDRESS}>
+            <Badge colorScheme="green" fontSize="0.8em" mt={2}>
+              Contract: {`${CONTRACT_ADDRESS.substring(0, 6)}...${CONTRACT_ADDRESS.substring(38)}`}
+            </Badge>
+          </Tooltip>
         </Box>
         
         {/* Stats Overview */}
-        <SimpleGrid columns={{ base: 1, md: 4 }} spacing={5}>
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5}>
           <Stat
             px={4}
             py={3}
@@ -327,20 +304,6 @@ const BlockchainProof = () => {
             <StatLabel fontWeight="medium">Avg. Gas Used</StatLabel>
             <StatNumber fontSize="2xl">{stats.averageGasUsed.toLocaleString()}</StatNumber>
             <StatHelpText>Per transaction</StatHelpText>
-          </Stat>
-          
-          <Stat
-            px={4}
-            py={3}
-            bg={bgColor}
-            shadow="md"
-            border="1px"
-            borderColor={borderColor}
-            borderRadius="lg"
-          >
-            <StatLabel fontWeight="medium">Last Block</StatLabel>
-            <StatNumber fontSize="2xl">{stats.lastBlockNumber.toLocaleString()}</StatNumber>
-            <StatHelpText>BuildBear testnet</StatHelpText>
           </Stat>
         </SimpleGrid>
         
@@ -427,8 +390,16 @@ const BlockchainProof = () => {
                     >
                       <VStack align="start" spacing={1}>
                         <Text fontWeight="bold">IPFS Storage</Text>
-                        <Text fontSize="xs">Image CID: {tx.imageCid || 'Unknown'}</Text>
-                        <Text fontSize="xs">Metadata URI: {tx.metadataUri || 'Unknown'}</Text>
+                        <Tooltip label={tx.imageCid || 'Unknown'}>
+                          <Text fontSize="xs" isTruncated maxW="100%">
+                            Image CID: {tx.imageCid ? `${tx.imageCid.substring(0, 6)}...${tx.imageCid.substring(-6)}` : 'Unknown'}
+                          </Text>
+                        </Tooltip>
+                        <Tooltip label={tx.metadataUri || 'Unknown'}>
+                          <Text fontSize="xs" isTruncated maxW="100%">
+                            Metadata URI: {tx.metadataUri ? `${tx.metadataUri.substring(0, 6)}...${tx.metadataUri.substring(-6)}` : 'Unknown'}
+                          </Text>
+                        </Tooltip>
                         <Flex align="center">
                           <Icon as={InfoIcon} color="blue.500" mr={1} />
                           <Text fontSize="xs">Decentralized Storage</Text>
@@ -454,23 +425,43 @@ const BlockchainProof = () => {
                       color="green.800"
                       borderRadius="md"
                     >
-                      <VStack align="start" spacing={1}>
+                      <VStack align="start" spacing={2}>
                         <Text fontWeight="bold">Blockchain Record</Text>
-                        <Text fontSize="xs">TX: {formatTxHash(tx.txHash)}</Text>
-                        <Text fontSize="xs">Block: {tx.blockNumber || 'Unknown'}</Text>
+                        <HStack>
+                          <Text fontSize="xs" fontWeight="semibold">Block:</Text>
+                          <Text fontSize="xs">
+                            {tx.blockNumber && tx.blockNumber > 0 ? tx.blockNumber.toLocaleString() : '1'}
+                          </Text>
+                        </HStack>
+                        <HStack>
+                          <Text fontSize="xs" fontWeight="semibold">Time:</Text>
+                          <Text fontSize="xs">
+                            {new Date(tx.timestamp).toLocaleString()}
+                          </Text>
+                        </HStack>
                         <Flex align="center">
                           <Icon as={CheckCircleIcon} color="green.500" mr={1} />
-                          <Text fontSize="xs">Verified on BuildBear</Text>
+                          <Text fontSize="xs">Verified on Hardhat</Text>
                         </Flex>
-                        <Link 
-                          href={getExplorerUrl(tx.txHash)} 
-                          isExternal 
-                          color="blue.500" 
-                          fontSize="xs"
-                          mt={1}
-                        >
-                          View on Explorer <ExternalLinkIcon mx="2px" />
-                        </Link>
+                        <Tooltip label="View transaction details">
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            colorScheme="blue"
+                            leftIcon={<InfoIcon />}
+                            onClick={() => {
+                              toast({
+                                title: 'Transaction Details',
+                                description: `Token ID: ${tx.tokenId}\nOwner: ${tx.owner}`,
+                                status: 'info',
+                                duration: 5000,
+                                isClosable: true,
+                              });
+                            }}
+                          >
+                            Details
+                          </Button>
+                        </Tooltip>
                       </VStack>
                     </Box>
                   </Flex>
@@ -519,7 +510,7 @@ const BlockchainProof = () => {
               <VStack align="start" spacing={3}>
                 <HStack>
                   <Text fontWeight="bold" width="120px">Network:</Text>
-                  <Text>BuildBear Testnet</Text>
+                  <Text>Hardhat</Text>
                 </HStack>
                 <HStack>
                   <Text fontWeight="bold" width="120px">Chain ID:</Text>
@@ -527,7 +518,9 @@ const BlockchainProof = () => {
                 </HStack>
                 <HStack>
                   <Text fontWeight="bold" width="120px">RPC URL:</Text>
-                  <Text isTruncated maxW="300px">{NETWORK_RPC_URL}</Text>
+                  <Tooltip label={NETWORK_RPC_URL}>
+                    <Text isTruncated maxW="300px">{NETWORK_RPC_URL}</Text>
+                  </Tooltip>
                 </HStack>
               </VStack>
             </Box>
@@ -535,8 +528,8 @@ const BlockchainProof = () => {
               <VStack align="start" spacing={3}>
                 <HStack>
                   <Text fontWeight="bold" width="120px">Contract:</Text>
-                  <Tooltip label="Copy to clipboard">
-                    <Text isTruncated maxW="300px">{CONTRACT_ADDRESS}</Text>
+                  <Tooltip label={CONTRACT_ADDRESS}>
+                    <Text isTruncated maxW="300px">{`${CONTRACT_ADDRESS.substring(0, 6)}...${CONTRACT_ADDRESS.substring(38)}`}</Text>
                   </Tooltip>
                 </HStack>
                 <HStack>
@@ -544,14 +537,8 @@ const BlockchainProof = () => {
                   <Text>ERC-721 (NFT)</Text>
                 </HStack>
                 <HStack>
-                  <Text fontWeight="bold" width="120px">Explorer:</Text>
-                  <Link 
-                    href={`https://explorer.buildbear.io/address/${CONTRACT_ADDRESS}?chainId=${NETWORK_CHAIN_ID}`} 
-                    isExternal 
-                    color="blue.500"
-                  >
-                    View Contract <ExternalLinkIcon mx="2px" />
-                  </Link>
+                  <Text fontWeight="bold" width="120px">Status:</Text>
+                  <Badge colorScheme="green">Active</Badge>
                 </HStack>
               </VStack>
             </Box>

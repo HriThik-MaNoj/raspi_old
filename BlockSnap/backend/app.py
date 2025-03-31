@@ -205,68 +205,114 @@ def capture_photo():
         # Create metadata URI (IPFS gateway URL)
         metadata_uri = ipfs_handler.get_ipfs_url(metadata_cid)
         
-        # Mint NFT
-        tx_hash, token_id = blockchain_handler.mint_photo_nft(
-            wallet_address,
-            file_cid,
-            metadata_uri
-        )
-        
-        # Save to local cache
+        # Mint NFT with error handling for timeouts
         try:
-            cache_dir = Path("/home/hrithik/raspi_old/BlockSnap/captures/nft_cache")
-            cache_dir.mkdir(exist_ok=True, parents=True)
-            wallet_cache_file = cache_dir / f"{wallet_address.lower()}.json"
+            tx_hash, token_id = blockchain_handler.mint_photo_nft(
+                wallet_address,
+                file_cid,
+                metadata_uri
+            )
             
-            # Create NFT object
-            nft = {
-                'tokenId': token_id,
-                'name': f'BlockSnap #{token_id}',
-                'description': 'A photo captured using BlockSnap',
-                'image': ipfs_handler.get_ipfs_url(file_cid),
-                'image_cid': file_cid,
-                'metadata_uri': metadata_uri,
-                'transaction_hash': tx_hash,
-                'metadata': metadata,
-                'type': 'photo',
-                'source': 'local_cache',
-                'timestamp': datetime.now().isoformat()
-            }
-            
-            # Read existing cache if it exists
-            cached_nfts = []
-            if wallet_cache_file.exists():
-                try:
-                    with open(wallet_cache_file, 'r') as f:
-                        cached_nfts = json.load(f)
-                except Exception as e:
-                    app.logger.error(f"Error reading cache file: {str(e)}")
-            
-            # Add new NFT to cache
-            cached_nfts.append(nft)
-            
-            # Write updated cache
-            with open(wallet_cache_file, 'w') as f:
-                json.dump(cached_nfts, f)
+            # Check if minting was successful
+            if not tx_hash:
+                logger.error("Minting failed: No transaction hash returned")
+                return jsonify({
+                    'status': 'partial_success',
+                    'message': 'Your image was saved to IPFS but the NFT minting failed. You can try minting again later.',
+                    'error': 'No transaction hash returned from blockchain',
+                    'data': {
+                        'file_cid': file_cid,
+                        'metadata_cid': metadata_cid,
+                        'metadata_uri': metadata_uri,
+                        'image_url': ipfs_handler.get_ipfs_url(file_cid)
+                    }
+                }), 202
                 
-            app.logger.info(f"Saved NFT {token_id} to local cache for {wallet_address}")
-        except Exception as cache_error:
-            app.logger.error(f"Error saving to cache: {str(cache_error)}")
-        
-        # Prepare response
-        response = {
-            'status': 'success',
-            'data': {
-                'file_cid': file_cid,
-                'metadata_cid': metadata_cid,
-                'token_id': token_id,
-                'transaction_hash': tx_hash,
-                'metadata_uri': metadata_uri,
-                'image_url': ipfs_handler.get_ipfs_url(file_cid)
+            # Prepare response - handle case where tx_hash exists but token_id is None
+            response = {
+                'status': 'success',
+                'data': {
+                    'file_cid': file_cid,
+                    'metadata_cid': metadata_cid,
+                    'token_id': token_id,
+                    'transaction_hash': tx_hash,
+                    'metadata_uri': metadata_uri,
+                    'image_url': ipfs_handler.get_ipfs_url(file_cid),
+                    'transaction_status': 'pending' if token_id is None else 'confirmed'
+                }
             }
-        }
-        
-        return jsonify(response)
+            
+            # Add transaction check URL
+            response['data']['check_transaction_url'] = f"/transaction/{tx_hash}"
+            
+            # Log transaction details
+            logger.info(f"NFT minting transaction submitted: {tx_hash}")
+            if token_id is None:
+                logger.info(f"Transaction is pending. Check status at /transaction/{tx_hash}")
+            else:
+                logger.info(f"Transaction confirmed with token ID: {token_id}")
+                
+            # Only save to cache if we have a token_id
+            if token_id is not None:
+                try:
+                    cache_dir = Path("/home/hrithik/raspi_old/BlockSnap/captures/nft_cache")
+                    cache_dir.mkdir(exist_ok=True, parents=True)
+                    wallet_cache_file = cache_dir / f"{wallet_address.lower()}.json"
+                    
+                    # Create NFT object
+                    nft = {
+                        'tokenId': token_id,
+                        'name': f'BlockSnap #{token_id}',
+                        'description': 'A photo captured using BlockSnap',
+                        'image': ipfs_handler.get_ipfs_url(file_cid),
+                        'image_cid': file_cid,
+                        'metadata_uri': metadata_uri,
+                        'transaction_hash': tx_hash,
+                        'metadata': metadata,
+                        'type': 'photo',
+                        'source': 'local_cache',
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    
+                    # Read existing cache if it exists
+                    cached_nfts = []
+                    if wallet_cache_file.exists():
+                        try:
+                            with open(wallet_cache_file, 'r') as f:
+                                cached_nfts = json.load(f)
+                        except Exception as e:
+                            app.logger.error(f"Error reading cache file: {str(e)}")
+                    
+                    # Add new NFT to cache
+                    cached_nfts.append(nft)
+                    
+                    # Write updated cache
+                    with open(wallet_cache_file, 'w') as f:
+                        json.dump(cached_nfts, f)
+                        
+                    app.logger.info(f"Saved NFT {token_id} to local cache for {wallet_address}")
+                except Exception as cache_error:
+                    app.logger.error(f"Error saving to cache: {str(cache_error)}")
+            else:
+                app.logger.warning(f"Transaction submitted but token_id not available yet. TX: {tx_hash}")
+            
+            return jsonify(response)
+            
+        except Exception as mint_error:
+            logger.error(f"Error in minting process: {str(mint_error)}")
+            
+            # Return partial success with IPFS data even if blockchain transaction failed
+            return jsonify({
+                'status': 'partial_success',
+                'message': 'Your image was saved to IPFS but the NFT minting failed. You can try minting again later.',
+                'error': str(mint_error),
+                'data': {
+                    'file_cid': file_cid,
+                    'metadata_cid': metadata_cid,
+                    'metadata_uri': metadata_uri,
+                    'image_url': ipfs_handler.get_ipfs_url(file_cid)
+                }
+            }), 202  # 202 Accepted - request accepted but processing not completed
         
     except Exception as e:
         logger.error(f"Error in capture endpoint: {str(e)}")
@@ -1291,6 +1337,64 @@ def query_media_endpoint():
             'error': str(e),
             'results': []
         }), 500
+
+@app.route('/transaction/<tx_hash>', methods=['GET'])
+def check_transaction_status(tx_hash):
+    """Check the status of a blockchain transaction"""
+    try:
+        # Convert string hash to bytes if needed
+        if isinstance(tx_hash, str) and tx_hash.startswith('0x'):
+            tx_hash_bytes = bytes.fromhex(tx_hash[2:])
+        else:
+            tx_hash_bytes = tx_hash
+            
+        # Get transaction data
+        try:
+            tx_data = blockchain_handler.w3.eth.get_transaction(tx_hash_bytes)
+            
+            # Check if transaction exists
+            if tx_data is None:
+                return jsonify({
+                    "status": "not_found", 
+                    "message": "Transaction not found"
+                })
+                
+            # Get block number
+            block_number = tx_data.get('blockNumber')
+            
+            # If block number is None, transaction is pending
+            if block_number is None:
+                return jsonify({
+                    "status": "pending",
+                    "message": "Transaction is pending",
+                    "tx_data": dict(tx_data)
+                })
+                
+            # Transaction is mined, get receipt
+            tx_receipt = blockchain_handler.w3.eth.get_transaction_receipt(tx_hash_bytes)
+            
+            # Check status
+            if tx_receipt.get('status') == 1:
+                return jsonify({
+                    "status": "success",
+                    "message": "Transaction was successful",
+                    "block_number": block_number,
+                    "gas_used": tx_receipt.get('gasUsed')
+                })
+            else:
+                return jsonify({
+                    "status": "failed",
+                    "message": "Transaction failed",
+                    "block_number": block_number,
+                    "gas_used": tx_receipt.get('gasUsed')
+                })
+        except Exception as tx_error:
+            logger.error(f"Error getting transaction data: {str(tx_error)}")
+            return jsonify({"error": str(tx_error)}), 500
+                
+    except Exception as e:
+        logger.error(f"Error checking transaction status: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 def cleanup():
     """Cleanup resources on shutdown"""

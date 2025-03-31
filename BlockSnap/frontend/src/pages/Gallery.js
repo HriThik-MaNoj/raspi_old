@@ -173,6 +173,43 @@ function Gallery() {
     }
   };
 
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return 'Time not available';
+    
+    // Check if timestamp is a string that needs to be parsed
+    let timeValue;
+    if (typeof timestamp === 'string') {
+      // Try to parse as ISO string first
+      if (timestamp.includes('T') || timestamp.includes('-')) {
+        timeValue = new Date(timestamp);
+      } else {
+        // Try to parse as unix timestamp (seconds or milliseconds)
+        const num = parseInt(timestamp);
+        // Check if it's in seconds (typical blockchain timestamp) or milliseconds
+        timeValue = new Date(num < 10000000000 ? num * 1000 : num);
+      }
+    } else if (typeof timestamp === 'number') {
+      // Direct number value
+      timeValue = new Date(timestamp < 10000000000 ? timestamp * 1000 : timestamp);
+    } else {
+      return 'Invalid timestamp';
+    }
+    
+    // Check if the date is valid
+    if (isNaN(timeValue.getTime())) {
+      return 'Invalid date';
+    }
+    
+    // Format the date
+    return timeValue.toLocaleString();
+  };
+
+  const isValidTxHash = (hash) => {
+    if (!hash || hash === '') return false;
+    // Basic check for Ethereum transaction hash format (0x followed by hex chars)
+    return /^0x[a-fA-F0-9]{1,}$/.test(hash);
+  };
+
   const renderInfoRow = (label, value) => (
     <Box w="100%" py={1}>
       <Text fontSize="xs" color="gray.500" mb={1}>
@@ -222,11 +259,8 @@ function Gallery() {
         <Box p={4}>
           <HStack justify="space-between">
             <VStack align="start" spacing={1}>
-              <Text fontWeight="bold" color="gray.100">
-                Session #{session.id}
-              </Text>
               <Text fontSize="sm" color="gray.400">
-                {new Date(parseInt(session.start_time) * 1000).toLocaleString()}
+                {formatTimestamp(session.start_time)}
               </Text>
               <Text fontSize="sm" color="gray.400">
                 {session.chunks.length} clips
@@ -265,9 +299,26 @@ function Gallery() {
                 </Text>
                 <VStack spacing={2} align="stretch">
                   {renderInfoRow('IPFS CID', chunk.video_cid)}
-                  {chunk.tx_hash && renderInfoRow('Transaction Hash', chunk.tx_hash)}
+                  {chunk.tx_hash ? (
+                    renderInfoRow('Transaction Hash', chunk.tx_hash)
+                  ) : (
+                    <Box w="100%" py={1}>
+                      <Text fontSize="xs" color="gray.500" mb={1}>Transaction Status</Text>
+                      <HStack justify="space-between" align="center" 
+                        bg="gray.800" 
+                        p={2} 
+                        borderRadius="md"
+                        borderWidth="1px"
+                        borderColor="gray.700"
+                      >
+                        <Text fontSize="xs" color="yellow.400" isTruncated>
+                          Pending blockchain confirmation
+                        </Text>
+                      </HStack>
+                    </Box>
+                  )}
                   <Text fontSize="xs" color="gray.500">
-                    {new Date(parseInt(chunk.timestamp) * 1000).toLocaleString()}
+                    {formatTimestamp(chunk.timestamp)}
                   </Text>
                 </VStack>
               </Box>
@@ -402,16 +453,27 @@ function Gallery() {
                       </Box>
                     )}
                     <Box p={4}>
-                      <Text fontWeight="bold" fontSize="lg" mb={2}>
-                        Photo #{nft.tokenId}
-                      </Text>
                       <VStack spacing={3} align="stretch">
                         {renderInfoRow('IPFS CID', nft.image_cid)}
-                        {renderInfoRow('Transaction Hash', nft.transaction_hash)}
+                        {isValidTxHash(nft.transaction_hash) ? 
+                          renderInfoRow('Transaction Hash', nft.transaction_hash) : 
+                          <Box w="100%" py={1}>
+                            <Text fontSize="xs" color="gray.500" mb={1}>Transaction Status</Text>
+                            <HStack justify="space-between" align="center" 
+                              bg="gray.800" 
+                              p={2} 
+                              borderRadius="md"
+                              borderWidth="1px"
+                              borderColor="gray.700"
+                            >
+                              <Text fontSize="xs" color="yellow.400" isTruncated>
+                                Pending blockchain confirmation
+                              </Text>
+                            </HStack>
+                          </Box>
+                        }
                         <Text fontSize="xs" color="gray.500">
-                          {nft.metadata && nft.metadata.timestamp ? 
-                            new Date(parseInt(nft.metadata.timestamp) * 1000).toLocaleString() : 
-                            'Timestamp not available'}
+                          {formatTimestamp(nft.metadata?.timestamp || nft.timestamp)}
                         </Text>
                       </VStack>
                     </Box>
@@ -451,16 +513,27 @@ function Gallery() {
                 </Box>
                 <Divider />
                 <VStack spacing={4} align="stretch">
-                  <Text fontSize="xl" fontWeight="bold">
-                    Photo #{selectedImage.tokenId}
-                  </Text>
                   {renderInfoRow('IPFS CID', selectedImage.image_cid)}
-                  {renderInfoRow('Transaction Hash', selectedImage.transaction_hash)}
+                  {isValidTxHash(selectedImage.transaction_hash) ? 
+                    renderInfoRow('Transaction Hash', selectedImage.transaction_hash) : 
+                    <Box w="100%" py={1}>
+                      <Text fontSize="xs" color="gray.500" mb={1}>Transaction Status</Text>
+                      <HStack justify="space-between" align="center" 
+                        bg="gray.800" 
+                        p={2} 
+                        borderRadius="md"
+                        borderWidth="1px"
+                        borderColor="gray.700"
+                      >
+                        <Text fontSize="xs" color="yellow.400" isTruncated>
+                          Pending blockchain confirmation
+                        </Text>
+                      </HStack>
+                    </Box>
+                  }
                   {renderInfoRow('Owner', selectedImage.owner || 'Unknown')}
                   <Text fontSize="sm" color="gray.400">
-                    {selectedImage.metadata && selectedImage.metadata.timestamp ? 
-                      `Captured on ${new Date(parseInt(selectedImage.metadata.timestamp) * 1000).toLocaleString()}` : 
-                      'Timestamp not available'}
+                    {`Captured on ${formatTimestamp(selectedImage.metadata?.timestamp || selectedImage.timestamp)}`}
                   </Text>
                 </VStack>
               </VStack>

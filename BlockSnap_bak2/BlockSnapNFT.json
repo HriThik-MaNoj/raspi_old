@@ -862,6 +862,6 @@
       "type": "function"
     }
   ],
-  "network": "hardhat",
-  "deploymentTime": "2025-03-30T13:03:42.267Z"
+  "network": "localhost",
+  "deploymentTime": "2025-03-31T00:22:04.095Z"
 }

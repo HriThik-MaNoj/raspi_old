@@ -7,19 +7,14 @@ import {
   Input,
   useToast,
   Heading,
-  Divider,
   HStack,
   Icon,
   Badge,
   FormControl,
   FormLabel,
   Spinner,
-  Tag,
-  TagLabel,
-  TagLeftIcon,
 } from '@chakra-ui/react';
-import { useDropzone } from 'react-dropzone';
-import { MdCloudUpload, MdVerified, MdError, MdDevices, MdPerson } from 'react-icons/md';
+import { MdVerified, MdError } from 'react-icons/md';
 import axios from 'axios';
 
 function VerifyMedia() {
@@ -27,44 +22,6 @@ function VerifyMedia() {
   const [loading, setLoading] = useState(false);
   const [txHashInput, setTxHashInput] = useState('');
   const toast = useToast();
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png'],
-      'video/*': ['.mp4', '.webm']
-    },
-    maxFiles: 1,
-    onDrop: async (acceptedFiles) => {
-      if (acceptedFiles.length > 0) {
-        await verifyFile(acceptedFiles[0]);
-      }
-    },
-  });
-
-  const verifyFile = async (file) => {
-    try {
-      setLoading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await axios.post('http://localhost:5000/verify/file', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      setVerificationResult(response.data);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const verifyTxHash = async () => {
     if (!txHashInput) {
@@ -79,7 +36,6 @@ function VerifyMedia() {
 
     try {
       setLoading(true);
-      // Use the distributed verification endpoint
       const response = await axios.get(`http://localhost:5000/api/verify/tx/${txHashInput}`);
       setVerificationResult(response.data);
     } catch (error) {
@@ -101,35 +57,8 @@ function VerifyMedia() {
         
         <Text color="gray.300">
           Verify the authenticity of media using blockchain verification. 
-          Our system validates media authenticity by checking transaction records on the blockchain, 
-          ensuring tamper-proof verification without relying on centralized storage systems.
+          Enter a transaction hash to validate media authenticity by checking blockchain records.
         </Text>
-        
-        <Box
-          {...getRootProps()}
-          p={10}
-          bg="gray.800"
-          borderRadius="lg"
-          borderWidth={2}
-          borderStyle="dashed"
-          borderColor={isDragActive ? "blue.500" : "gray.600"}
-          cursor="pointer"
-          _hover={{
-            borderColor: "blue.500",
-          }}
-        >
-          <input {...getInputProps()} />
-          <VStack spacing={4}>
-            <Icon as={MdCloudUpload} w={12} h={12} color="gray.400" />
-            <Text color="gray.400" textAlign="center">
-              {isDragActive
-                ? "Drop the file here"
-                : "Drag and drop a file here, or click to select"}
-            </Text>
-          </VStack>
-        </Box>
-
-        <Divider />
 
         <VStack spacing={4}>
           <FormControl>
@@ -203,32 +132,18 @@ function VerifyMedia() {
               {/* Display verification source */}
               {verificationResult.verified_by && (
                 <HStack>
-                  <Tag size="md" colorScheme="purple" borderRadius="full">
-                    <TagLeftIcon boxSize="12px" as={MdDevices} />
-                    <TagLabel>Verified by: {verificationResult.verified_by}</TagLabel>
-                  </Tag>
-                </HStack>
-              )}
-
-              {/* Display media type */}
-              {verificationResult.media_type && (
-                <HStack>
-                  <Badge colorScheme="teal">
-                    Media Type
+                  <Badge colorScheme="purple">
+                    Verified by: {verificationResult.verified_by}
                   </Badge>
-                  <Text color="gray.300" textTransform="capitalize">
-                    {verificationResult.media_type}
-                  </Text>
                 </HStack>
               )}
 
               {/* Display owner */}
               {verificationResult.owner && (
                 <HStack>
-                  <Tag size="md" colorScheme="green" borderRadius="full">
-                    <TagLeftIcon boxSize="12px" as={MdPerson} />
-                    <TagLabel>Owner: {verificationResult.owner.substring(0, 6)}...{verificationResult.owner.substring(38)}</TagLabel>
-                  </Tag>
+                  <Badge colorScheme="green">
+                    Owner: {verificationResult.owner.substring(0, 6)}...{verificationResult.owner.substring(38)}
+                  </Badge>
                 </HStack>
               )}
 

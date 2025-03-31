@@ -1,5 +1,5 @@
 {
-  "address": "0x5edB65640f340AF6A8e2ea55e2fC7727Ef75A19A",
+  "address": "0x755F28632B892Ed06C12Ef04dA90BfBebb7A21A2",
   "abi": [
     {
       "inputs": [],
@@ -863,5 +863,5 @@
     }
   ],
   "network": "buildbear",
-  "deploymentTime": "2025-03-30T15:25:02.414Z"
+  "deploymentTime": "2025-03-30T23:37:02.248Z"
 }
